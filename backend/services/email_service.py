@@ -1,7 +1,7 @@
 from flask_mail import Message
 from extensions import mail
 
-def send_reminder_email(user_id, email, company, custom_message=None, history_id=None):
+def send_reminder_email(user_id , email, company, custom_message=None, history_id=None):
     try:
         # ⭐ TRACKING PIXEL
         tracking_pixel = ""

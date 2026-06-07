@@ -9,3 +9,5 @@ notifications_bp = Blueprint("notifications", __name__, url_prefix="/api/notific
 some_bp = Blueprint("some", __name__, url_prefix="/api/some")
 recruiter_bp = Blueprint("recruiter", __name__, url_prefix="/api/recruiter")
 tracking_bp = Blueprint("tracking", __name__, url_prefix="/api/tracking")
+resources_bp = Blueprint('resources', __name__, url_prefix='/api/resources')
+settings_bp = Blueprint('settings', __name__, url_prefix='/api/settings')

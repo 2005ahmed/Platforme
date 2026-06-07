@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { coverLetterAPI } from "../services/api";
 import { saveAs } from "file-saver";
-import { Document, Packer, Paragraph, TextRun } from "docx";
 import jsPDF from "jspdf";
-
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  AlignmentType
+} from "docx";
 
 function FormulaireCandidat() {
   const [formData, setFormData] = useState({
@@ -11,7 +16,7 @@ function FormulaireCandidat() {
     prenom: '',
     email: '',
     telephone: '',
-    adresse: '',
+    ville: '',
     poste: '',
     entreprise: '',
     competences: ''
@@ -49,21 +54,38 @@ function FormulaireCandidat() {
   // Télécharger en Word
 const downloadWord = async () => {
   const doc = new Document({
-    sections: [
-      {
+  sections: [{
+    children: [
+      new Paragraph({
+        text: `${formData.prenom} ${formData.nom}`,
+      }),
+
+      new Paragraph({
+        text: formData.email,
+      }),
+
+      new Paragraph({
+        text: formData.telephone,
+      }),
+      new Paragraph(""),
+
+      new Paragraph({
         children: [
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: letter,
-                size: 24
-              })
-            ]
+          new TextRun({
+            text: `Objet : Candidature au poste de ${formData.poste}`,
+            bold: true
           })
         ]
-      }
+      }),
+
+      new Paragraph(""),
+
+      ...letter.split("\n").map(
+        line => new Paragraph(line)
+      )
     ]
-  });
+  }]
+});
 
   const blob = await Packer.toBlob(doc);
   saveAs(blob, "Lettre_de_Motivation.docx");
@@ -72,8 +94,53 @@ const downloadWord = async () => {
 // Télécharger en PDF
 const downloadPDF = () => {
   const doc = new jsPDF();
+
+  let y = 20;
+
+  // Header
+  doc.setFontSize(12);
+  doc.text(`${formData.prenom} ${formData.nom}`, 10, y);
+  y += 7;
+
+  doc.text(formData.email, 10, y);
+  y += 7;
+
+  doc.text(formData.telephone, 10, y);
+  y += 10;
+
+  // Date à droite
+  doc.text(
+    `${formData.ville}, le ${new Date().toLocaleDateString()}`,
+    140,
+    y
+  );
+  y += 15;
+
+  doc.text(
+    `À l'attention du Responsable Recrutement`,
+    10,
+    y
+  );
+  y += 7;
+
+  doc.text(formData.entreprise, 10, y);
+  y += 10;
+
+  // Objet en gras
+  doc.setFont(undefined, "bold");
+  doc.text(
+    `Objet : Candidature au poste de ${formData.poste}`,
+    10,
+    y
+  );
+  doc.setFont(undefined, "normal");
+
+  y += 15;
+
+  // Corps de la lettre
   const lines = doc.splitTextToSize(letter, 180);
-  doc.text(lines, 10, 10);
+  doc.text(lines, 10, y);
+
   doc.save("Lettre_de_Motivation.pdf");
 };
 
@@ -180,14 +247,15 @@ const downloadPDF = () => {
 
           <div style={{ marginTop: '15px' }}>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Adresse (optionnel) :
+              Ville <span style={{ color: 'red' }}>*</span> :
             </label>
             <input
               type="text"
-              name="adresse"
-              value={formData.adresse}
+              name="ville"
+              value={formData.ville}
               onChange={handleChange}
-              placeholder="Ex: Tanger, Maroc"
+              placeholder="Ex: Tanger"
+              required
               style={{
                 width: '100%',
                 padding: '10px',

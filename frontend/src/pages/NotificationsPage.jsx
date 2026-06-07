@@ -1,197 +1,219 @@
-
-import { useEffect, useState } from "react";
-import Layout from "../components/TopLayout";
+import { useState, useEffect } from "react";
+import TopLayout from "../components/TopLayout";
 import api from "../services/api";
-
-import {
-  Bell,
-  Check,
-  CheckCheck,
-  Clock,
-  Trash2,
+import { 
+  Bell, Mail, Clock, Check, Trash2, ChevronDown,
+  AlertCircle 
 } from "lucide-react";
 
 export default function NotificationsPage() {
   const [items, setItems] = useState([]);
+  const [settings, setSettings] = useState(null);
+  const [loading, setLoading] = useState({ notifs: false, settings: false });
+  const [saved, setSaved] = useState(false);
 
-  const load = async () => {
+  // ========== LOAD ==========
+  const loadNotifications = async () => {
+    setLoading(p => ({ ...p, notifs: true }));
     try {
       const res = await api.get("/notifications/");
-      setItems(res.data || []);
-    } catch (err) {
-      console.log(err);
+      setItems(res.data);
+    } catch (e) {
+      console.error("Erreur chargement notifications:", e);
     }
+    setLoading(p => ({ ...p, notifs: false }));
+  };
+
+  const loadSettings = async () => {
+    setLoading(p => ({ ...p, settings: true }));
+    try {
+      const res = await api.get("/settings/reminders");
+      setSettings(res.data);
+    } catch (e) {
+      console.error("Erreur chargement paramètres:", e);
+      // Fallback
+      setSettings({
+        enable_email_reminders: true,
+        follow_up_frequency: 7
+      });
+    }
+    setLoading(p => ({ ...p, settings: false }));
   };
 
   useEffect(() => {
-    load();
+    loadNotifications();
+    loadSettings();
   }, []);
 
+  // ========== ACTIONS ==========
   const markRead = async (id) => {
     try {
       await api.patch(`/notifications/${id}/read`);
-      load();
-    } catch (err) {
-      console.log(err);
-    }
+      loadNotifications();
+    } catch (e) { console.error(e); }
   };
 
-  const readAll = async () => {
+  const markAllRead = async () => {
     try {
       await api.patch("/notifications/read-all");
-      load();
-    } catch (err) {
-      console.log(err);
-    }
+      loadNotifications();
+    } catch (e) { console.error(e); }
   };
 
   const deleteNotification = async (id) => {
     try {
       await api.delete(`/notifications/${id}`);
-      load();
-    } catch (err) {
-      console.log(err);
+      loadNotifications();
+    } catch (e) { console.error(e); }
+  };
+
+  const saveSettings = async () => {
+    try {
+      await api.put("/settings/reminders", settings);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e) { console.error("Erreur sauvegarde:", e); }
+  };
+
+  const updateSetting = (field, value) => {
+    setSettings(prev => ({ ...prev, [field]: value }));
+  };
+
+  // ========== HELPERS ==========
+  const unreadCount = items.filter(n => !n.is_read).length;
+
+  const getIcon = (type) => {
+    switch (type) {
+      case "reminder": return <Clock size={18} className="text-amber-500" />;
+      case "response": return <Mail size={18} className="text-blue-500" />;
+      case "interview": return <Check size={18} className="text-emerald-500" />;
+      default: return <Bell size={18} className="text-slate-400" />;
     }
   };
 
-  // Compter non lues
-  const unreadCount = items.filter((n) => !n.is_read).length;
+  const getBgColor = (type, isRead) => {
+    if (isRead) return "bg-white border-slate-200";
+    switch (type) {
+      case "reminder": return "bg-amber-50/80 border-amber-200";
+      case "response": return "bg-blue-50/80 border-blue-200";
+      case "interview": return "bg-emerald-50/80 border-emerald-200";
+      default: return "bg-white border-slate-200";
+    }
+  };
 
+  const getLeftBorder = (type) => {
+    switch (type) {
+      case "reminder": return "border-l-4 border-l-amber-400";
+      case "response": return "border-l-4 border-l-blue-400";
+      case "interview": return "border-l-4 border-l-emerald-400";
+      default: return "border-l-4 border-l-slate-300";
+    }
+  };
+
+  // ========== RENDER ==========
   return (
-    <Layout title="Notifications">
-      {/* HEADER */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-2xl bg-indigo-100 flex items-center justify-center">
-              <Bell className="text-indigo-600" size={28} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">
-                Notifications
-              </h1>
-              <p className="text-slate-500 text-sm mt-1">
-                {unreadCount > 0
-                  ? `${unreadCount} notification${unreadCount > 1 ? "s" : ""} non lue${unreadCount > 1 ? "s" : ""}`
-                  : "Toutes les notifications sont lues"}
-              </p>
-            </div>
+    <TopLayout title="Notifications">
+      <div className="max-w-3xl mx-auto space-y-8">
+        
+        {/* ===== HEADER ===== */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bell size={20} className="text-amber-500" />
+            <h1 className="text-xl font-bold text-slate-900">Notifications</h1>
+            {unreadCount > 0 && (
+              <span className="bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                {unreadCount}
+              </span>
+            )}
           </div>
-
           {unreadCount > 0 && (
             <button
-              onClick={readAll}
-              className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg transition-colors"
+              onClick={markAllRead}
+              className="text-sm text-slate-500 hover:text-indigo-600 font-medium transition-colors"
             >
-              <CheckCheck size={18} />
               Tout marquer comme lu
             </button>
           )}
         </div>
-      </div>
 
-      {/* NOTIFICATIONS LIST */}
-      <div className="space-y-4">
-        {items.map((n) => (
-          <div
-            key={n.id}
-            className={`bg-white border rounded-3xl p-6 shadow-sm transition-all hover:shadow-md ${
-              n.is_read
-                ? "border-slate-200 opacity-75"
-                : "border-indigo-200 bg-indigo-50/30"
-            }`}
-          >
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-              {/* LEFT: Icon + Content */}
-              <div className="flex items-start gap-4">
-                {/* Status Icon */}
-                <div
-                  className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                    n.is_read
-                      ? "bg-slate-100 text-slate-400"
-                      : "bg-indigo-100 text-indigo-600"
-                  }`}
-                >
-                  {n.is_read ? (
-                    <Check size={20} />
-                  ) : (
-                    <Bell size={20} />
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full ${
-                        n.is_read
-                          ? "bg-slate-100 text-slate-500"
-                          : "bg-indigo-100 text-indigo-700"
-                      }`}
-                    >
-                      {n.type}
-                    </span>
-                    {!n.is_read && (
-                      <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
-                    )}
+        {/* ===== NOTIFICATIONS LIST ===== */}
+        <div className="space-y-3">
+          {loading.notifs ? (
+            <div className="text-center py-12 text-slate-400">Chargement...</div>
+          ) : items.length === 0 ? (
+            <div className="text-center py-12 bg-white border border-slate-200 rounded-2xl">
+              <Bell size={48} className="text-slate-200 mx-auto mb-3" />
+              <p className="text-slate-500">Aucune notification</p>
+              <p className="text-sm text-slate-400 mt-1">
+                Les rappels et réponses apparaîtront ici
+              </p>
+            </div>
+          ) : (
+            items.map(n => (
+              <div
+                key={n.id}
+                className={`relative border rounded-2xl p-4 transition-all hover:shadow-md ${getBgColor(n.type, n.is_read)} ${getLeftBorder(n.type)}`}
+              >
+                <div className="flex items-start gap-3">
+                  {/* Icon circle */}
+                  <div className={`p-2 rounded-xl shrink-0 ${n.is_read ? 'bg-slate-100' : 'bg-white shadow-sm'}`}>
+                    {getIcon(n.type)}
                   </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className={`font-semibold text-sm ${n.is_read ? 'text-slate-600' : 'text-slate-900'}`}>
+                          {n.title || (n.type === "reminder" ? "Rappel de relance" : n.type === "response" ? "Nouvelle réponse reçue" : "Notification")}
+                        </h3>
+                        <p className={`text-sm mt-1 leading-relaxed ${n.is_read ? 'text-slate-400' : 'text-slate-600'}`}>
+                          {n.message}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-2">
+                          {n.created_at ? new Date(n.created_at).toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : ''}
+                        </p>
+                      </div>
 
-                  <p
-                    className={`text-base ${
-                      n.is_read
-                        ? "text-slate-500"
-                        : "text-slate-800 font-medium"
-                    }`}
-                  >
-                    {n.message}
-                  </p>
-
-                  <div className="flex items-center gap-1 text-slate-400 text-sm">
-                    <Clock size={14} />
-                    {n.created_at}
+                      {/* Actions */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {!n.is_read && (
+                          <button
+                            onClick={() => markRead(n.id)}
+                            className="text-xs bg-white border border-slate-200 text-slate-500 px-3 py-1.5 rounded-lg hover:bg-slate-50 hover:text-slate-700 transition-colors"
+                          >
+                            Marquer comme lu
+                          </button>
+                        )}
+                        {n.type === "response" && (
+                          <button className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors">
+                            Voir
+                          </button>
+                        )}
+                        {n.type === "interview" && (
+                          <button className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
+                            Calendrier
+                          </button>
+                        )}
+                        <button
+                          onClick={() => deleteNotification(n.id)}
+                          className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-
-              {/* RIGHT: Actions */}
-              <div className="flex items-center gap-2 shrink-0">
-                {!n.is_read && (
-                  <button
-                    onClick={() => markRead(n.id)}
-                    className="flex items-center gap-1 px-4 py-2 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 text-sm font-medium transition-colors"
-                  >
-                    <Check size={16} />
-                    Marquer comme lu
-                  </button>
-                )}
-
-                <button
-                  onClick={() => deleteNotification(n.id)}
-                  className="flex items-center gap-1 px-4 py-2 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 text-sm font-medium transition-colors"
-                >
-                  <Trash2 size={16} />
-                  Supprimer
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* EMPTY STATE */}
-        {!items.length && (
-          <div className="bg-white border border-slate-200 rounded-3xl p-12 shadow-sm text-center">
-            <div className="h-20 w-20 rounded-3xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-              <Bell className="text-slate-400" size={40} />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">
-              Aucune notification
-            </h3>
-            <p className="text-slate-500">
-              Vous n&apos;avez pas encore reçu de notifications.
-            </p>
-          </div>
-        )}
+            ))
+          )}
+        </div>
       </div>
-    </Layout>
+    </TopLayout>
   );
 }

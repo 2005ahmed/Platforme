@@ -2,25 +2,35 @@ import PyPDF2
 import docx
 
 
+from datetime import datetime
+
 def generate_cover_letter(data):
+    today = datetime.now().strftime("%d/%m/%Y")
+
     return f"""
+                                            Safi, le {today}
+                                            
+
+À l'attention du Responsable Recrutement
+{data['entreprise']}
+
 Madame, Monsieur,
 
 Je me permets de vous adresser ma candidature pour le poste de {data['poste']} au sein de votre entreprise.
 
-Titulaire de compétences solides en {data['competences']}, et particulièrement intéressé(e) par le domaine de {data['entreprise']}, je souhaite mettre mes connaissances et mon dynamisme au service de votre équipe.
+Titulaire de compétences solides en {data['competences']}, je suis particulièrement motivé(e) à l'idée de rejoindre {data['entreprise']} et de contribuer activement à son développement.
 
-Motivé(e), sérieux(se) et doté(e) d’un bon esprit d’analyse, je suis capable de travailler aussi bien en autonomie qu’en équipe. Mon parcours m’a permis de développer des compétences techniques ainsi qu’un sens de responsabilité et d’adaptation face aux différents défis professionnels.
+Au cours de mon parcours, j'ai développé des compétences techniques ainsi qu'une grande capacité d'adaptation, de travail en équipe et de résolution de problèmes. Sérieux(se), motivé(e) et rigoureux(se), je suis convaincu(e) de pouvoir apporter une réelle valeur ajoutée à votre organisation.
 
-Intégrer votre structure représente pour moi une opportunité de progresser, d’enrichir mon expérience et de contribuer activement à vos projets.
+Intégrer votre entreprise représente pour moi une opportunité de mettre en pratique mes connaissances, d'enrichir mon expérience professionnelle et de participer à des projets ambitieux.
 
-Je reste à votre disposition pour un entretien afin de vous exposer plus en détail mes motivations.
+Je reste à votre entière disposition pour un entretien au cours duquel je pourrai vous exposer plus en détail mes motivations.
 
-Dans l’attente de votre réponse, je vous prie d’agréer, Madame, Monsieur, l’expression de mes salutations distinguées.
+Dans l'attente de votre réponse, je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.
+
+Signature :
 
 {data['prenom'].capitalize()} {data['nom'].capitalize()}
-Email : {data['email']}
-Téléphone : {data['telephone']}
 """
 
 

@@ -28,7 +28,7 @@ def get_all_applications():
     user_id = int(get_jwt_identity())
     recruiter = User.query.get(user_id)
     
-    if not recruiter or not recruiter.is_recruiter:
+    if not recruiter or recruiter.role != "recruiter":  # ⭐ FIX
         return jsonify({"message": "Access denied"}), 403
 
     applications = Application.query.order_by(Application.created_at.desc()).all()
@@ -69,10 +69,8 @@ def update_application_status(app_id):
     recruiter = User.query.get(user_id)
 
     # CHECK ROLE
-    if not recruiter or not recruiter.is_recruiter:
-        return jsonify({
-            "message": "Access denied"
-        }), 403
+    if not recruiter or recruiter.role != "recruiter":  # ⭐ FIX
+        return jsonify({"message": "Access denied"}), 403
 
     app = Application.query.get(app_id)
 
@@ -114,49 +112,42 @@ def update_application_status(app_id):
 @recruiter_bp.post("/send-notification")
 @jwt_required()
 def send_notification():
+    try:  # ⭐ ZID try/except
+        user_id = int(get_jwt_identity())
+        recruiter = User.query.get(user_id)
 
-    user_id = int(get_jwt_identity())
+        if not recruiter or recruiter.role != "recruiter":  # ⭐ FIX
+            return jsonify({"message": "Access denied"}), 403
 
-    recruiter = User.query.get(user_id)
+        data = request.get_json() or {}
+        candidate_id = data.get("candidate_id")
+        message = data.get("message")
 
-    # CHECK ROLE
-    if not recruiter or not recruiter.is_recruiter:
-        return jsonify({
-            "message": "Access denied"
-        }), 403
+        if not candidate_id or not message:
+            return jsonify({"message": "candidate_id and message required"}), 400
 
-    data = request.get_json() or {}
+        candidate = User.query.get(candidate_id)
+        if not candidate:
+            return jsonify({"message": "Candidate not found"}), 404
 
-    candidate_id = data.get("candidate_id")
-    message = data.get("message")
+        # ⭐ ZID title
+        notification = Notification(
+            user_id=candidate.id,
+            title="Message du recruteur",  # ⭐ ZID
+            type="response",
+            message=message
+        )
 
-    if not candidate_id or not message:
-        return jsonify({
-            "message": "candidate_id and message required"
-        }), 400
+        db.session.add(notification)
+        db.session.commit()
 
-    candidate = User.query.get(candidate_id)
-
-    if not candidate:
-        return jsonify({
-            "message": "Candidate not found"
-        }), 404
-
-    notification = Notification(
-        user_id=candidate.id,
-        type="response",
-        message=message
-    )
-
-    db.session.add(notification)
-
-    db.session.commit()
-
-    return jsonify({
-        "message": "Notification sent"
-    }), 201
-
-
+        return jsonify({"message": "Notification sent"}), 201
+        
+    except Exception as e:
+        db.session.rollback()  # ⭐ ROLLBACK si erreur
+        import traceback
+        traceback.print_exc()
+        return jsonify({"message": str(e)}), 500
 # ==============================
 # SEND EMAIL REMINDER
 # Recruiter only
@@ -171,12 +162,13 @@ def send_email():
         user_id = int(get_jwt_identity())
         recruiter = User.query.get(user_id)
         
-        if not recruiter or not recruiter.is_recruiter:
+        if not recruiter or recruiter.role != "recruiter":  # ⭐ FIX
             return jsonify({"message": "Access denied"}), 403
         
         data = request.get_json() or {}
         candidate_id = data.get("candidate_id")
         company = data.get("company")
+        custom_message = data.get("custom_message")  # ⭐ ZID
         
         if not candidate_id or not company:
             return jsonify({"message": "candidate_id and company required"}), 400
@@ -185,11 +177,7 @@ def send_email():
         if not candidate:
             return jsonify({"message": "Candidate not found"}), 404
         
-        # ⭐ DEBUG: Chouf wash email kayn
-        print(f"Sending email to: {candidate.email}")
-        print(f"Company: {company}")
-        
-        # ⭐ SAVE HISTORY AWAL
+        # ⭐ SAVE HISTORY
         history = EmailHistory(
             recruiter_id=recruiter.id,
             candidate_id=candidate.id,
@@ -200,33 +188,28 @@ def send_email():
         db.session.add(history)
         db.session.commit()
         
-        # ⭐ SEND EMAIL B history_id
+        # ⭐ SEND EMAIL — 5 params!
         success = send_reminder_email(
-            candidate.id,
-            candidate.email,
-            company,
-            history_id=history.id  # ⭐ HADI!
+            user_id=candidate.id,      # ⭐ nommé
+            email=candidate.email,      # ⭐ nommé
+            company=company,            # ⭐ nommé
+            custom_message=custom_message,  # ⭐ ZID
+            history_id=history.id       # ⭐ ZID
         )
         
-        # ⭐ UPDATE HISTORY
         if success:
             history.status = "sent"
             db.session.commit()
-            return jsonify({"message": "Email sent successfully"}), 200
+            return jsonify({"message": "Email sent"}), 200
         else:
             history.status = "failed"
             db.session.commit()
             return jsonify({"message": "Error sending email"}), 500
             
     except Exception as e:
-        print(f"ERROR in send_email: {str(e)}")  # ⭐ HADI KHASSEK TKON HNA
         import traceback
-        traceback.print_exc()  # ⭐ PRINT FULL TRACE
+        traceback.print_exc()
         return jsonify({"message": f"Server error: {str(e)}"}), 500
-    
-
-    # ⭐ GET HISTORY
-# recruiter_routes.py
 
 @recruiter_bp.get("/email-history")
 @jwt_required()
@@ -235,19 +218,15 @@ def get_email_history():
         user_id = int(get_jwt_identity())
         recruiter = User.query.get(user_id)
         
-        if not recruiter or not recruiter.is_recruiter:
+        if not recruiter or recruiter.role != "recruiter":  # ⭐ FIX
             return jsonify({"message": "Access denied"}), 403
         
-        # ⭐ JIB HISTORY MEN DATABASE
         history = EmailHistory.query.filter_by(recruiter_id=recruiter.id)\
             .order_by(EmailHistory.sent_at.desc())\
             .all()
         
-        print(f"📧 HISTORY FOUND: {len(history)} emails")  # ⭐ DEBUG
-        
         result = []
         for h in history:
-            # ⭐ JIB CANDIDATE INFO
             candidate = User.query.get(h.candidate_id)
             
             result.append({
@@ -264,40 +243,11 @@ def get_email_history():
         return jsonify(result), 200
         
     except Exception as e:
-        print(f"❌ ERROR: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"message": str(e)}), 500
-            
-    except Exception as e:
         print(f"ERROR: {str(e)}")
         import traceback
         traceback.print_exc()
-        return jsonify({"message": f"Server error: {str(e)}"}), 500
-
-@recruiter_bp.post("/schedule-email")
-@jwt_required()
-def schedule_email_route():
-    user_id = int(get_jwt_identity())
-    recruiter = User.query.get(user_id)
-    
-    if not recruiter or not recruiter.is_recruiter:
-        return jsonify({"message": "Access denied"}), 403
-    
-    data = request.get_json()
-    candidate_id = data.get("candidate_id")
-    company = data.get("company")
-    date_str = data.get("scheduled_at")  # "2026-05-30T10:00:00"
-    
-    scheduled_at = datetime.fromisoformat(date_str)
-    
-    scheduled = schedule_email(recruiter.id, candidate_id, company, scheduled_at)
-    
-    return jsonify({
-        "message": "Email scheduled",
-        "scheduled": scheduled.to_dict()
-    }), 201
-
+        return jsonify({"message": str(e)}), 500
+    # ⭐ SUPPRIMER le deuxième except block!
 
 # ==============================
 # RECRUITER ANALYTICS
@@ -311,7 +261,7 @@ def recruiter_analytics():
     user_id = int(get_jwt_identity())
     recruiter = User.query.get(user_id)
     
-    if not recruiter or not recruiter.is_recruiter:
+    if not recruiter or recruiter.role != "recruiter":  # ⭐ FIX
         return jsonify({"message": "Access denied"}), 403
 
     # ⭐ DATES
@@ -451,7 +401,7 @@ def get_candidate_cv(candidate_id):
     user_id = int(get_jwt_identity())
     recruiter = User.query.get(user_id)
     
-    if not recruiter or not recruiter.is_recruiter:
+    if not recruiter or recruiter.role != "recruiter":  # ⭐ FIX
         return jsonify({"message": "Access denied"}), 403
     
     candidate = User.query.get(candidate_id)

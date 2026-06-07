@@ -23,6 +23,7 @@ class User(db.Model):
     bio = db.Column(db.Text)
     cv_filename = db.Column(db.String(255))
     cv_text = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
     applications = db.relationship(
         "Application",
@@ -71,4 +72,5 @@ class User(db.Model):
             "cv_filename": self.cv_filename,
             "cv_text": self.cv_text,
             "photo_url": self.photo_url,
+            "created_at": self.created_at,
         }

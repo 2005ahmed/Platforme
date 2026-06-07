@@ -18,6 +18,8 @@ from routes import (
     profile_bp, 
     notifications_bp,
     recruiter_bp,
+    resources_bp,
+    settings_bp
     
 )
 
@@ -28,6 +30,8 @@ import routes.admin_routes
 import routes.profile_routes
 import routes.notification_routes
 import routes.recruiter_routes
+import routes.resources_routes
+import routes.settings_routes
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -61,6 +65,8 @@ app.register_blueprint(admin_bp)
 app.register_blueprint(profile_bp)
 app.register_blueprint(notifications_bp)
 app.register_blueprint(recruiter_bp)
+app.register_blueprint(resources_bp)
+app.register_blueprint(settings_bp)
 
 with app.app_context():
     db.create_all()
