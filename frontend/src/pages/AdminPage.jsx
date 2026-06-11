@@ -183,7 +183,7 @@ export default function AdminPage() {
     { id: "users", label: "Utilisateurs", icon: Users, count: users.length },
     { id: "resources", label: "Ressources", icon: BookOpen, count: resources.length },
     { id: "offers", label: "Offres", icon: Briefcase, count: offers.length },
-    { id: "advice", label: "Conseils", icon: Lightbulb, count: advice.length },
+    
   ];
 
   const updateForm = (field, value) => {
@@ -723,9 +723,9 @@ export default function AdminPage() {
   </div>
 )}
               {/* ===== TAB: CONSEILS ===== */}
-              {activeTab === "advice" && (
+              {/* {activeTab === "advice" && (
                 <div className="space-y-6">
-                  {/* Form Conseils */}
+                
                   <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                     <h3 className="text-lg font-bold text-slate-900 mb-6">Ajouter un conseil</h3>
                     
@@ -748,7 +748,7 @@ export default function AdminPage() {
                     </form>
                   </div>
 
-                  {/* List Conseils */}
+                  
                   <div className="space-y-3">
                     <h4 className="font-semibold text-slate-900 mb-3">Conseils publiés ({advice.length})</h4>
                     {advice.map(item => (
@@ -764,7 +764,7 @@ export default function AdminPage() {
                     {advice.length === 0 && <div className="text-center py-8 text-slate-400 text-sm">Aucun conseil publié</div>}
                   </div>
                 </div>
-              )}
+              )} */}
 
             </div>
           </div>

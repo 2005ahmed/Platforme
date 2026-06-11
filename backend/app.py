@@ -5,10 +5,9 @@ from datetime import timedelta
 
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from extensions import db, jwt , mail , socketio
+from extensions import db, jwt , mail
 from config import Config
 from services.ai_service import extract_text_from_file, analyze_cv_text
-from services.email_service import send_reminder_email
 
 from routes import (
     auth_bp, 
@@ -56,7 +55,7 @@ CORS(app, resources={
 db.init_app(app)
 jwt.init_app(app)
 mail.init_app(app)
-socketio.init_app(app)
+
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(applications_bp)
@@ -83,19 +82,6 @@ def analyze_cv():
 @app.route("/uploads/<path:filename>", methods=["GET"])
 def get_upload(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
-@app.route("/test-email")
-@jwt_required()
-def test_email():
-
-    user_id = int(get_jwt_identity())
-
-    send_reminder_email(
-        user_id,
-        "Google"
-    )
-
-    return {"message": "email sent"}
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

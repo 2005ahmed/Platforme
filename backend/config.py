@@ -21,10 +21,9 @@ class Config:
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
     MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10MB
 
-    MAIL_SERVER = "smtp.gmail.com"
-    MAIL_PORT = 587
-    MAIL_USE_TLS = True
-    MAIL_USERNAME = "jobtracker056@gmail.com"
-    MAIL_PASSWORD="okdu anry abjj hdyh"
-
-    MAIL_DEFAULT_SENDER = ("JobTracker", "jobtracker056@gmail.com")
+    MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+    MAIL_PORT = int(os.getenv("MAIL_PORT", 587))
+    MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "True").lower() == "true"
+    MAIL_USERNAME = os.getenv("MAIL_USERNAME", "jobtracker056@gmail.com")
+    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")  # ⭐ FIX: Use env var!
+    MAIL_DEFAULT_SENDER = ("JobTracker", os.getenv("MAIL_USERNAME", "jobtracker056@gmail.com"))

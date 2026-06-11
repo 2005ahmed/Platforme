@@ -21,7 +21,7 @@ def list_notifications():
     return jsonify([n.to_dict() for n in items]), 200
 
 
-@notifications_bp.patch("/<int:notif_id>/read")   # ✅ FIX: <int:notif_id>
+@notifications_bp.patch("/<int:notif_id>/read")
 @jwt_required()
 def mark_read(notif_id):
     user_id = int(get_jwt_identity())
@@ -42,7 +42,7 @@ def read_all():
     return jsonify({"success": True}), 200
 
 
-@notifications_bp.delete("/<int:notif_id>")   # ✅ FIX: <int:notif_id>
+@notifications_bp.delete("/<int:notif_id>")
 @jwt_required()
 def delete_notification(notif_id):
     user_id = int(get_jwt_identity())
@@ -54,18 +54,19 @@ def delete_notification(notif_id):
     return jsonify({"success": True}), 200
 
 
+# ⭐ FIX: send_reminder_email signature wassit (5 params)
 @notifications_bp.post("/send-reminder")
 @jwt_required()
 def send_reminder():
     user_id = int(get_jwt_identity())
     data = request.get_json() or {}
-    
+
     email = data.get("email")
     company = data.get("company")
-    
+
     if not email or not company:
         return jsonify({"message": "Email and company required"}), 400
-    
+
     try:
         send_reminder_email(
             user_id=user_id,

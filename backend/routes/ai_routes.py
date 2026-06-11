@@ -36,6 +36,7 @@ def generate_cover_letter_route():
         "email": user.email,
         "telephone": user.phone
     }
+    
 
     letter = build_cover_letter(payload)
 

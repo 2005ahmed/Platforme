@@ -38,21 +38,6 @@ export default function RecruiterPage() {
   const [activeTab, setActiveTab] = useState("applications");
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // ⭐ SETTINGS STATE
-  const [reminderSettings, setReminderSettings] = useState({
-    follow_up_frequency: 7,
-    interview_prep_reminder: 1,
-    no_response_reminder: 14,
-    weekly_digest: true,
-    digest_day: "monday",
-    reminder_time: "09:00",
-    timezone: "Europe/Paris",
-    include_ai_tips: true,
-    enable_email_reminders: true,
-    enable_in_app_reminders: true
-  });
-  const [settingsLoading, setSettingsLoading] = useState(false);
-
   const BACKEND_URL = "http://localhost:5000";
 
   // ========== LOAD FUNCTIONS ==========
@@ -77,20 +62,10 @@ export default function RecruiterPage() {
     }
   };
 
-  const loadSettings = async () => {
-    try {
-      const res = await api.get("/settings/reminders");
-      if (res.data) setReminderSettings(res.data);
-    } catch (err) {
-      console.log("Error loading settings:", err);
-    }
-  };
-
   // ========== TAB SWITCH ==========
   const switchTab = (tab) => {
     setActiveTab(tab);
     if (tab === "history") loadHistory();
-    if (tab === "settings") loadSettings();
   };
 
   // ========== CV VIEW ==========
@@ -159,23 +134,6 @@ export default function RecruiterPage() {
     }
   };
 
-  // ⭐ SAVE SETTINGS
-  const saveSettings = async () => {
-    setSettingsLoading(true);
-    try {
-      await api.put("/settings/reminders", reminderSettings);
-      alert("✅ Paramètres enregistrés!");
-    } catch (err) {
-      console.log("Error saving settings:", err);
-      alert("❌ Erreur lors de l'enregistrement");
-    } finally {
-      setSettingsLoading(false);
-    }
-  };
-
-  const updateSetting = (key, value) => {
-    setReminderSettings(prev => ({ ...prev, [key]: value }));
-  };
 
   // ========== EFFECTS ==========
   useEffect(() => {
@@ -268,18 +226,6 @@ export default function RecruiterPage() {
             <span className="ml-1 px-2 py-0.5 bg-slate-200 text-slate-600 rounded-full text-xs">
               {emailHistory.length}
             </span>
-          </button>
-
-          <button
-            onClick={() => switchTab("settings")}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-              activeTab === "settings"
-                ? "bg-white text-indigo-600 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            <Settings size={18} />
-            Paramètres
           </button>
         </div>
 
@@ -475,180 +421,6 @@ export default function RecruiterPage() {
               </div>
             )}
           </>
-        )}
-
-        {/* ========== TAB: SETTINGS ========== */}
-        {activeTab === "settings" && (
-          <div className="space-y-6 max-w-2xl">
-            <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-              <Bell size={20} className="text-indigo-600" />
-              Paramètres des rappels
-            </h3>
-            
-            {/* Rappel de relance */}
-            <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
-              <div>
-                <p className="font-medium text-slate-900">Rappel de relance après candidature</p>
-                <p className="text-xs text-slate-500">Délai avant notification de relance</p>
-              </div>
-              <select
-                value={reminderSettings.follow_up_frequency}
-                onChange={e => updateSetting("follow_up_frequency", parseInt(e.target.value))}
-                className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
-              >
-                <option value={3}>3 jours</option>
-                <option value={7}>7 jours</option>
-                <option value={14}>14 jours</option>
-                <option value={30}>30 jours</option>
-              </select>
-            </div>
-
-            {/* Préparation entretien */}
-            <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
-              <div>
-                <p className="font-medium text-slate-900">Rappel de préparation entretien</p>
-                <p className="text-xs text-slate-500">Jours avant l'entretien</p>
-              </div>
-              <select
-                value={reminderSettings.interview_prep_reminder}
-                onChange={e => updateSetting("interview_prep_reminder", parseInt(e.target.value))}
-                className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
-              >
-                <option value={1}>1 jour</option>
-                <option value={2}>2 jours</option>
-                <option value={3}>3 jours</option>
-                <option value={7}>7 jours</option>
-              </select>
-            </div>
-
-            {/* Pas de réponse */}
-            <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
-              <div>
-                <p className="font-medium text-slate-900">Rappel si pas de réponse</p>
-                <p className="text-xs text-slate-500">Délai avant notification</p>
-              </div>
-              <select
-                value={reminderSettings.no_response_reminder}
-                onChange={e => updateSetting("no_response_reminder", parseInt(e.target.value))}
-                className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
-              >
-                <option value={7}>7 jours</option>
-                <option value={14}>14 jours</option>
-                <option value={21}>21 jours</option>
-                <option value={30}>30 jours</option>
-              </select>
-            </div>
-
-            {/* Résumé hebdomadaire */}
-            <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
-              <div>
-                <p className="font-medium text-slate-900">Résumé hebdomadaire</p>
-                <p className="text-xs text-slate-500">Recevoir un résumé chaque semaine</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <select
-                  value={reminderSettings.digest_day}
-                  onChange={e => updateSetting("digest_day", e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
-                >
-                  <option value="monday">Lundi</option>
-                  <option value="tuesday">Mardi</option>
-                  <option value="wednesday">Mercredi</option>
-                  <option value="thursday">Jeudi</option>
-                  <option value="friday">Vendredi</option>
-                </select>
-                <button
-                  onClick={() => updateSetting("weekly_digest", !reminderSettings.weekly_digest)}
-                  className={`w-12 h-6 rounded-full transition-colors ${reminderSettings.weekly_digest ? 'bg-indigo-600' : 'bg-slate-300'}`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full transition-transform ${reminderSettings.weekly_digest ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-            </div>
-
-            {/* Heure des rappels */}
-            <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
-              <div>
-                <p className="font-medium text-slate-900">Heure des rappels</p>
-                <p className="text-xs text-slate-500">Heure d'envoi des notifications</p>
-              </div>
-              <input
-                type="time"
-                value={reminderSettings.reminder_time}
-                onChange={e => updateSetting("reminder_time", e.target.value)}
-                className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
-              />
-            </div>
-
-            {/* Fuseau horaire */}
-            <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
-              <div>
-                <p className="font-medium text-slate-900">Fuseau horaire</p>
-                <p className="text-xs text-slate-500">Votre zone horaire</p>
-              </div>
-              <select
-                value={reminderSettings.timezone}
-                onChange={e => updateSetting("timezone", e.target.value)}
-                className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm"
-              >
-                <option value="Europe/Paris">Europe/Paris</option>
-                <option value="Europe/London">Europe/London</option>
-                <option value="Africa/Casablanca">Africa/Casablanca</option>
-                <option value="America/New_York">America/New_York</option>
-              </select>
-            </div>
-
-            {/* Conseils IA */}
-            <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
-              <div>
-                <p className="font-medium text-slate-900">Conseils IA</p>
-                <p className="text-xs text-slate-500">Inclure des conseils personnalisés</p>
-              </div>
-              <button
-                onClick={() => updateSetting("include_ai_tips", !reminderSettings.include_ai_tips)}
-                className={`w-12 h-6 rounded-full transition-colors ${reminderSettings.include_ai_tips ? 'bg-indigo-600' : 'bg-slate-300'}`}
-              >
-                <div className={`w-5 h-5 bg-white rounded-full transition-transform ${reminderSettings.include_ai_tips ? 'translate-x-6' : 'translate-x-1'}`} />
-              </button>
-            </div>
-
-            {/* Email notifications */}
-            <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
-              <div>
-                <p className="font-medium text-slate-900">Notifications par email</p>
-                <p className="text-xs text-slate-500">Recevoir les rappels sur votre email</p>
-              </div>
-              <button
-                onClick={() => updateSetting("enable_email_reminders", !reminderSettings.enable_email_reminders)}
-                className={`w-12 h-6 rounded-full transition-colors ${reminderSettings.enable_email_reminders ? 'bg-indigo-600' : 'bg-slate-300'}`}
-              >
-                <div className={`w-5 h-5 bg-white rounded-full transition-transform ${reminderSettings.enable_email_reminders ? 'translate-x-6' : 'translate-x-1'}`} />
-              </button>
-            </div>
-
-            {/* In-app notifications */}
-            <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
-              <div>
-                <p className="font-medium text-slate-900">Notifications in-app</p>
-                <p className="text-xs text-slate-500">Recevoir les rappels dans l'application</p>
-              </div>
-              <button
-                onClick={() => updateSetting("enable_in_app_reminders", !reminderSettings.enable_in_app_reminders)}
-                className={`w-12 h-6 rounded-full transition-colors ${reminderSettings.enable_in_app_reminders ? 'bg-indigo-600' : 'bg-slate-300'}`}
-              >
-                <div className={`w-5 h-5 bg-white rounded-full transition-transform ${reminderSettings.enable_in_app_reminders ? 'translate-x-6' : 'translate-x-1'}`} />
-              </button>
-            </div>
-
-            {/* Save button */}
-            <button
-              onClick={saveSettings}
-              disabled={settingsLoading}
-              className="w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50"
-            >
-              {settingsLoading ? "Enregistrement..." : "Enregistrer les paramètres"}
-            </button>
-          </div>
         )}
 
         {/* ========== MODALS ========== */}
