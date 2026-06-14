@@ -1,16 +1,139 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import api, { coverLetterAPI } from "../services/api";
 import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
-import UploadCV from "./UploadCV"; 
 import {
   Document, Packer, Paragraph, TextRun
 } from "docx";
 import {
   Sparkles, Target, Award, CheckCircle2, AlertCircle,
   XCircle, ChevronRight, Upload, Download, TrendingUp,
-  Zap, FileText, Briefcase, Loader, X
+  Zap, FileText, Briefcase, Loader, X, MessageCircle,
+  Send, User, Bot, FileUp, Paperclip, Wand2, Star,
+  BarChart3, Lightbulb, Edit3, ArrowRight, BookOpen,
+  Code, Globe
 } from "lucide-react";
+
+// ⭐ FONCTION BACH TSE7A7 L-TEXT (remove markdown)
+function formatAiText(text) {
+  if (!text) return "";
+  return text
+    .replace(/\n\n/g, '\n')
+    .replace(/\n/g, '\n')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .trim();
+}
+
+// ⭐ FONCTION BACH TPARSE L-ANALYSE CV
+  function parseAiAnalysis(data) {
+  // Ila kan data deja object (JSON), parse direct
+  if (typeof data === 'object' && data !== null) {
+    const sections = [];
+    
+    // Résumé
+    if (data.resume) {
+      sections.push({
+        title: 'Résumé',
+        items: [data.resume],
+        type: 'text'
+      });
+    }
+    
+    // Points forts
+    if (data.strengths && Array.isArray(data.strengths)) {
+      sections.push({
+        title: 'Points forts',
+        items: data.strengths,
+        type: 'list'
+      });
+    }
+    
+    // Points faibles
+    if (data.weaknesses && Array.isArray(data.weaknesses)) {
+      sections.push({
+        title: 'Points faibles',
+        items: data.weaknesses,
+        type: 'list'
+      });
+    }
+    
+    // Suggestions
+    if (data.suggestions && Array.isArray(data.suggestions)) {
+      sections.push({
+        title: 'Suggestions',
+        items: data.suggestions,
+        type: 'list'
+      });
+    }
+    
+    // Score
+    if (data.score) {
+      sections.push({
+        title: 'Score',
+        items: [`Grade: ${data.score.grade || 'N/A'}`, `Score: ${data.score.overall || 'N/A'}/10`],
+        type: 'list'
+      });
+    }
+    
+    return sections;
+  }
+  
+  // Sinon, ancien parsing (string/markdown)
+  if (!data || typeof data !== 'string') return [];
+  
+  const lines = data.split('\n').filter(l => l.trim());
+  const sections = [];
+  let currentSection = null;
+  
+  lines.forEach(line => {
+    const trimmed = line.trim();
+    
+    // Detect section headers (avec ** ou :)
+    if (trimmed.match(/^\*\*.*\*\*:*/) || 
+        trimmed.match(/^(Points forts|Points faibles|Points à améliorer|Points a ameliorer|Suggestions|Score global|Score|Résumé|Analyse|Conseils|Recommandations|Formations|Compétences|Competences|Langues)/i)) {
+      
+      if (currentSection) sections.push(currentSection);
+      
+      const title = trimmed
+        .replace(/^\*\*/, '')
+        .replace(/\*\*$/, '')
+        .replace(/:$/, '')
+        .replace(/\*+$/, '')
+        .trim();
+      
+      currentSection = {
+        title: title,
+        items: [],
+        type: 'list'
+      };
+    } 
+    // Detect list items
+    else if (trimmed.match(/^[-•]\s*/) || trimmed.match(/^\*\s+/) || trimmed.match(/^\d+\.\s*/)) {
+      if (!currentSection) {
+        currentSection = { title: 'Analyse', items: [], type: 'list' };
+      }
+      const cleanItem = trimmed
+        .replace(/^[-•]\s*/, '')
+        .replace(/^\*\s+/, '')
+        .replace(/^\d+\.\s*/, '')
+        .replace(/\*\*/g, '')
+        .trim();
+      currentSection.items.push(cleanItem);
+    } 
+    // Regular text
+    else if (trimmed) {
+      if (!currentSection) {
+        currentSection = { title: 'Résumé', items: [], type: 'text' };
+      }
+      const cleanText = trimmed.replace(/\*\*/g, '').trim();
+      currentSection.items.push(cleanText);
+    }
+  });
+  
+  if (currentSection) sections.push(currentSection);
+  return sections;
+}
 
 function FormulaireCandidat() {
   const [formData, setFormData] = useState({
@@ -20,18 +143,26 @@ function FormulaireCandidat() {
   const [letter, setLetter] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // ⭐ CV ANALYSIS STATE
+  const [cvAnalysis, setCvAnalysis] = useState(null);
+  const [cvAnalysisLoading, setCvAnalysisLoading] = useState(false);
   const [cvFile, setCvFile] = useState(null);
+  const [showCvAnalysis, setShowCvAnalysis] = useState(false);
 
-  // AI + ATS State
-  const [aiTips, setAiTips] = useState(null);
-  const [atsScore, setAtsScore] = useState(null);
-  const [cvImprovements, setCvImprovements] = useState(null);
-  const [showAiPanel, setShowAiPanel] = useState(false);
-  const [showAtsPanel, setShowAtsPanel] = useState(false);
-  const [showCvPanel, setShowCvPanel] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [atsLoading, setAtsLoading] = useState(false);
+  // ⭐ CHAT STATE
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [chatSessionId, setChatSessionId] = useState(null);
+  const chatEndRef = useRef(null);
+  const fileInputRef = useRef(null);
 
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -46,77 +177,133 @@ function FormulaireCandidat() {
       const response = await coverLetterAPI.generate(formData);
       setLetter(response.data.lettre || response.data.letter || "");
     } catch (err) {
-      console.error('Erreur:', err);
       setError('Erreur lors de la génération. Vérifiez le backend.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Upload CV
-  const handleCvUpload = async (e) => {
+  // ⭐ ANALYSE CV DIRECT
+  const handleCvUploadForAnalysis = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
     setCvFile(file);
-    
+    setCvAnalysisLoading(true);
+    setShowCvAnalysis(true);
+    setError('');
+
     const formDataUpload = new FormData();
     formDataUpload.append('cv', file);
-    
+    formDataUpload.append('job_description', formData.poste + ' chez ' + formData.entreprise);
+
     try {
-      await api.post('/upload-cv', formDataUpload, {
+      const response = await api.post('/ai/analyze-cv', formDataUpload, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setError('✅ CV uploadé avec succès!');
-      setTimeout(() => setError(''), 3000);
-    } catch (err) {
-      setError('❌ Erreur upload CV');
-    }
-  };
 
-  // AI Tips
-  const loadAiTips = async () => {
-    setAiLoading(true);
-    setError('');
-    try {
-      const res = await api.get("/applications/ai-tips");
-      setAiTips(res.data);
-      setShowAiPanel(true);
-      setShowAtsPanel(false);
-      setShowCvPanel(false);
+      const data = response.data;
+
+      if (!data || data.error) {
+        throw new Error(data.error || data.message || "Erreur serveur");
+      }
+
+      // ⭐ STOCKER L-DATA
+      setCvAnalysis({
+        ai_analysis: data.ai_analysis,
+        ats_score: data.ats_score,
+        cv_text_preview: data.cv_text_preview
+      });
+      setChatSessionId(data.session_id);
+      setShowChat(true);
+
+      // ⭐ PARSE ET AFFICHER DIRECT
+      const sections = parseAiAnalysis(data.ai_analysis);
+      setChatMessages([{
+        role: 'assistant',
+        content: 'analysis',
+        sections: sections,
+        ats_score: data.ats_score
+      }]);
+
     } catch (err) {
-      setError(`❌ ${err.response?.data?.message || 'Erreur chargement conseils'}`);
+      const errorMsg = err.response?.data?.details || err.response?.data?.error || err.message;
+      setError('❌ ' + errorMsg);
+      setCvAnalysis(null);
+      setShowCvAnalysis(false);
     } finally {
-      setAiLoading(false);
+      setCvAnalysisLoading(false);
     }
   };
 
-  // ATS Score
-  const loadAtsScore = async () => {
-    setAtsLoading(true);
-    setError('');
+  // ⭐ CHAT FUNCTIONS
+  const sendChatMessage = async () => {
+    if (!chatInput.trim()) return;
+
+    const userMsg = chatInput.trim();
+    setChatInput('');
+    setChatLoading(true);
+
+    setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+
     try {
-      const res = await api.get("/applications/ats-score");
-      setAtsScore(res.data);
-      setShowAtsPanel(true);
-      setShowAiPanel(false);
-      setShowCvPanel(false);
+      let response;
+
+      if (chatSessionId) {
+        response = await api.post('/ai/chat-cv', {
+          session_id: chatSessionId,
+          message: userMsg
+        });
+      } else {
+        response = await api.post('/ai/chat', {
+          message: userMsg,
+          history: chatMessages.map(m => ({ role: m.role, content: m.content }))
+        });
+      }
+
+      const aiResponse = response.data.response || "Je n'ai pas compris.";
+      setChatMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
     } catch (err) {
-      setError(`❌ ${err.response?.data?.message || 'Erreur score ATS'}`);
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: '❌ Erreur: ' + (err.response?.data?.details || 'Service indisponible')
+      }]);
     } finally {
-      setAtsLoading(false);
+      setChatLoading(false);
     }
   };
 
-  // CV Improvements
-  const loadCvImprovements = async () => {
+  // ⭐ REFORMULER SECTION
+  const rewriteSection = async (section) => {
+    if (!chatSessionId) return;
+
+    setChatLoading(true);
+    setChatMessages(prev => [...prev, {
+      role: 'user',
+      content: `✏️ Reformule ma section "${section}"`
+    }]);
+
     try {
-      const res = await api.get("/applications/cv-improvements");
-      setCvImprovements(res.data);
-      setShowCvPanel(true);
-      setShowAiPanel(false);
-      setShowAtsPanel(false);
+      const response = await api.post('/rewrite-cv-section', {
+        session_id: chatSessionId,
+        section: section,
+        instructions: 'Rendre plus impactante et professionnelle'
+      });
+
+      const newVersion = response.data.new_version;
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: newVersion,
+        isRewrite: true,
+        section: section
+      }]);
     } catch (err) {
-      setError(`❌ ${err.response?.data?.message || 'Erreur'}`);
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: '❌ Erreur: ' + (err.response?.data?.details || 'Service indisponible')
+      }]);
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -163,24 +350,162 @@ function FormulaireCandidat() {
     doc.save("Lettre_de_Motivation.pdf");
   };
 
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-6">
-        <Upload size={18} className="text-blue-600" />
-        <h2 className="text-lg font-semibold text-slate-900">Téléchargez votre CV</h2>
+  // ⭐ RENDER SECTION DYAL ANALYSE
+  const renderAnalysisSection = (section, idx) => {
+    const colors = {
+      'Points forts': 'bg-emerald-50 border-emerald-200 text-emerald-800',
+      'Points faibles': 'bg-rose-50 border-rose-200 text-rose-800',
+      'Points à améliorer': 'bg-amber-50 border-amber-200 text-amber-800',
+      'Points a ameliorer': 'bg-amber-50 border-amber-200 text-amber-800',
+      'Suggestions': 'bg-blue-50 border-blue-200 text-blue-800',
+      'Score global': 'bg-purple-50 border-purple-200 text-purple-800',
+      'Score': 'bg-purple-50 border-purple-200 text-purple-800',
+      'Résumé': 'bg-slate-50 border-slate-200 text-slate-800',
+      'Analyse': 'bg-indigo-50 border-indigo-200 text-indigo-800',
+      'Conseils': 'bg-cyan-50 border-cyan-200 text-cyan-800',
+      'Recommandations': 'bg-teal-50 border-teal-200 text-teal-800',
+      'Formations': 'bg-violet-50 border-violet-200 text-violet-800',
+      'Compétences': 'bg-sky-50 border-sky-200 text-sky-800',
+      'Competences': 'bg-sky-50 border-sky-200 text-sky-800',
+      'Langues': 'bg-pink-50 border-pink-200 text-pink-800'
+    };
+
+    const icons = {
+      'Points forts': Star,
+      'Points faibles': AlertCircle,
+      'Points à améliorer': Lightbulb,
+      'Points a ameliorer': Lightbulb,
+      'Suggestions': Wand2,
+      'Score global': BarChart3,
+      'Score': BarChart3,
+      'Résumé': FileText,
+      'Analyse': Target,
+      'Conseils': Sparkles,
+      'Recommandations': CheckCircle2,
+      'Formations': BookOpen,
+      'Compétences': Code,
+      'Competences': Code,
+      'Langues': Globe
+    };
+
+    const colorClass = colors[section.title] || 'bg-slate-50 border-slate-200 text-slate-800';
+    const IconComponent = icons[section.title] || FileText;
+
+    return (
+      <div key={idx} className={`rounded-xl border p-4 mb-3 ${colorClass}`}>
+        <div className="flex items-center gap-2 mb-3">
+          <IconComponent size={18} />
+          <h4 className="font-semibold text-sm">{section.title}</h4>
+        </div>
+        <ul className="space-y-2">
+          {section.items.map((item, i) => (
+            <li key={i} className="text-sm flex items-start gap-2">
+              <ArrowRight size={14} className="mt-1 flex-shrink-0 opacity-60" />
+              <span className="leading-relaxed">{item}</span>
+            </li>
+          ))}
+        </ul>
       </div>
-      <UploadCV onFileSelect={handleCvUpload} />
-      {/* MAIN GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    );
+  };
 
-        {/* LEFT: FORM (5 cols) */}
-        <div className="lg:col-span-5">
+  // ⭐ RENDER ATS SCORE
+  const renderAtsScore = (score) => {
+  if (!score) return null;
+  
+  // Ila kan score object avec 'overall' (pas 'overall_score')
+  const s = score.overall_score || score.overall || 0;
+  // Converti 7/10 → 70/100 pour l'affichage
+  const displayScore = s <= 10 ? s * 10 : s;
+  
+  const color = displayScore >= 80 ? 'text-emerald-600' : displayScore >= 60 ? 'text-blue-600' : displayScore >= 40 ? 'text-amber-600' : 'text-rose-600';
+  const bg = displayScore >= 80 ? 'bg-emerald-50 border-emerald-200' : displayScore >= 60 ? 'bg-blue-50 border-blue-200' : displayScore >= 40 ? 'bg-amber-50 border-amber-200' : 'bg-rose-50 border-rose-200';
+
+  return (
+    <div className={`rounded-xl border p-4 mb-4 ${bg}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <BarChart3 size={20} className={color} />
+          <h4 className="font-semibold text-sm">Score ATS</h4>
+        </div>
+        <span className={`text-2xl font-bold ${color}`}>{s}/100</span>
+      </div>
+      <div className="w-full bg-white rounded-full h-2">
+        <div 
+          className={`h-2 rounded-full ${displayScore >= 80 ? 'bg-emerald-500' : displayScore >= 60 ? 'bg-blue-500' : displayScore >= 40 ? 'bg-amber-500' : 'bg-rose-500'}`}
+          style={{ width: `${displayScore}%` }}
+        />
+      </div>
+      <p className="text-xs mt-2 opacity-75">
+        {score.grade ? `Grade: ${score.grade}` : ''}
+        {score.is_ats_friendly ? ' ✅ CV optimisé ATS' : ' ⚠️ Amélioration recommandée'}
+      </p>
+    </div>
+  );
+};
+
+  return (
+    <div className="max-w-7xl mx-auto p-6">
+      
+      {/* HEADER */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">
+          Générateur de Lettre de Motivation
+        </h1>
+        <p className="text-slate-500">
+          Remplissez vos informations et laissez l'IA créer votre lettre personnalisée
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        {/* LEFT: FORM + CV UPLOAD (5 cols) */}
+        <div className="lg:col-span-5 space-y-6">
+          
+          {/* ⭐ UPLOAD CV SECTION */}
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-indigo-100 rounded-lg">
+                <Upload size={20} className="text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-indigo-900">Analyser votre CV</h3>
+                <p className="text-xs text-indigo-600">L'IA analysera votre CV et vous donnera des conseils</p>
+              </div>
+            </div>
+            
+            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-indigo-200 rounded-xl bg-white/50 hover:bg-white cursor-pointer transition-all hover:border-indigo-400">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <FileUp size={28} className="text-indigo-400 mb-2" />
+                <p className="text-sm text-indigo-600 font-medium">
+                  {cvFile ? cvFile.name : 'Cliquez pour uploader votre CV'}
+                </p>
+                <p className="text-xs text-indigo-400 mt-1">PDF, DOCX, ou Image</p>
+              </div>
+              <input 
+                type="file" 
+                className="hidden" 
+                onChange={handleCvUploadForAnalysis}
+                accept=".pdf,.docx,.doc,.png,.jpg,.jpeg"
+              />
+            </label>
+
+            {cvAnalysisLoading && (
+              <div className="mt-4 flex items-center gap-2 text-indigo-600 text-sm">
+                <Loader size={16} className="animate-spin" />
+                <span>Analyse en cours...</span>
+              </div>
+            )}
+          </div>
+
+          {/* FORMULAIRE */}
           <form onSubmit={handleSubmit} className="space-y-6">
-
+            
             {/* Informations Personnelles */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
               <h3 className="text-slate-700 font-semibold mb-4 flex items-center gap-2">
-                <span>📋</span> Vos Informations
+                <User size={18} className="text-indigo-500" />
+                Vos Informations
               </h3>
               
               <div className="grid grid-cols-2 gap-4">
@@ -192,7 +517,7 @@ function FormulaireCandidat() {
                     type="text" name="nom" value={formData.nom}
                     onChange={handleChange} placeholder="Ex: Saadeddine"
                     required
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm transition-all"
                   />
                 </div>
                 <div>
@@ -203,7 +528,7 @@ function FormulaireCandidat() {
                     type="text" name="prenom" value={formData.prenom}
                     onChange={handleChange} placeholder="Ex: Ahmed"
                     required
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm transition-all"
                   />
                 </div>
               </div>
@@ -216,7 +541,7 @@ function FormulaireCandidat() {
                   type="email" name="email" value={formData.email}
                   onChange={handleChange} placeholder="Ex: ahmed@example.com"
                   required
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm transition-all"
                 />
               </div>
 
@@ -228,7 +553,7 @@ function FormulaireCandidat() {
                   type="tel" name="telephone" value={formData.telephone}
                   onChange={handleChange} placeholder="Ex: +212 6 12 34 56 78"
                   required
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm transition-all"
                 />
               </div>
 
@@ -240,15 +565,16 @@ function FormulaireCandidat() {
                   type="text" name="ville" value={formData.ville}
                   onChange={handleChange} placeholder="Ex: Tanger"
                   required
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm transition-all"
                 />
               </div>
             </div>
 
             {/* Détails du Poste */}
-            <div className="bg-blue-50 rounded-2xl border border-blue-100 p-6">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-6">
               <h3 className="text-blue-700 font-semibold mb-4 flex items-center gap-2">
-                <span>💼</span> Détails du Poste
+                <Briefcase size={18} className="text-blue-500" />
+                Détails du Poste
               </h3>
 
               <div className="mb-4">
@@ -259,7 +585,7 @@ function FormulaireCandidat() {
                   type="text" name="poste" value={formData.poste}
                   onChange={handleChange} placeholder="Ex: Développeur Full Stack"
                   required
-                  className="w-full px-3 py-2 rounded-xl border border-blue-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2.5 rounded-xl border border-blue-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all"
                 />
               </div>
 
@@ -271,7 +597,7 @@ function FormulaireCandidat() {
                   type="text" name="entreprise" value={formData.entreprise}
                   onChange={handleChange} placeholder="Ex: Google"
                   required
-                  className="w-full px-3 py-2 rounded-xl border border-blue-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2.5 rounded-xl border border-blue-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all"
                 />
               </div>
 
@@ -284,7 +610,7 @@ function FormulaireCandidat() {
                   onChange={handleChange}
                   placeholder="Ex: React, Python, Flask, MySQL, Docker, Git"
                   required rows="3"
-                  className="w-full px-3 py-2 rounded-xl border border-blue-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-y"
+                  className="w-full px-3 py-2.5 rounded-xl border border-blue-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-y transition-all"
                 />
               </div>
             </div>
@@ -293,12 +619,12 @@ function FormulaireCandidat() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
             >
               {loading ? (
                 <>
                   <Loader size={20} className="animate-spin" />
-                  Génération...
+                  Génération en cours...
                 </>
               ) : (
                 <>
@@ -311,7 +637,7 @@ function FormulaireCandidat() {
 
           {/* Error */}
           {error && (
-            <div className={`mt-4 p-4 rounded-xl border-l-4 text-sm ${
+            <div className={`p-4 rounded-xl border-l-4 text-sm ${
               error.includes('✅') 
                 ? 'bg-green-50 border-green-500 text-green-700' 
                 : 'bg-red-50 border-red-500 text-red-700'
@@ -320,245 +646,242 @@ function FormulaireCandidat() {
             </div>
           )}
 
-          {/* AI Preview */}
-          {letter && (
-            <div className="mt-4 p-4 bg-green-50 rounded-xl border-l-4 border-green-500">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles size={16} className="text-green-600" />
-                <h4 className="text-green-800 font-medium text-sm">💡 Conseil IA</h4>
-              </div>
-              <p className="text-green-700 text-sm">
-                Votre lettre est prête! Postulez à au moins <strong>5 offres par semaine</strong>.
-              </p>
-            </div>
-          )}
-
           {/* Letter Result */}
           {letter && (
-            <div className="mt-6 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
               <h3 className="text-indigo-600 font-semibold mb-4 flex items-center gap-2">
                 <FileText size={18} />
                 Lettre Générée
               </h3>
-              <pre className="whitespace-pre-wrap font-serif text-sm text-slate-700 bg-slate-50 p-4 rounded-xl leading-relaxed">
-                {letter}
-              </pre>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <pre className="whitespace-pre-wrap font-serif text-sm text-slate-700 leading-relaxed">
+                  {letter}
+                </pre>
+              </div>
               
               <div className="flex flex-wrap gap-3 mt-4">
                 <button
                   onClick={() => { navigator.clipboard.writeText(letter); alert("Copiée!"); }}
-                  className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 flex items-center gap-2"
+                  className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 flex items-center gap-2 transition-all"
                 >
-                  📋 Copier
+                  <FileText size={16} />
+                  Copier
                 </button>
                 <button
                   onClick={downloadWord}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 flex items-center gap-2"
+                  className="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 flex items-center gap-2 transition-all"
                 >
-                  📄 Word
+                  <Download size={16} />
+                  Word
                 </button>
                 <button
                   onClick={downloadPDF}
-                  className="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 flex items-center gap-2"
+                  className="px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 flex items-center gap-2 transition-all"
                 >
-                  📕 PDF
+                  <Download size={16} />
+                  PDF
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* CENTER: SPACER (3 cols) */}
-        <div className="hidden lg:block lg:col-span-3">
-          {/* Vide — bach layout ykoun mizan */}
-        </div>
+        {/* CENTER: SPACER (1 col) */}
+        <div className="hidden lg:block lg:col-span-1" />
 
-        {/* RIGHT: AI + ATS CARDS (4 cols) */}
-        <div className="lg:col-span-4 space-y-4">
-
-          {/* Conseils IA */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 bg-indigo-50 rounded-lg">
-                <Sparkles size={20} className="text-indigo-600" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-slate-900 text-sm">Conseils IA</h4>
-                <p className="text-xs text-slate-500">Basés sur votre historique</p>
-              </div>
-            </div>
-            <p className="text-xs text-slate-600 mb-3">
-              Analyse personnalisée de vos candidatures.
-            </p>
-            <button
-              onClick={loadAiTips}
-              disabled={aiLoading}
-              className="w-full py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {aiLoading ? <Loader size={14} className="animate-spin" /> : <TrendingUp size={14} />}
-              {aiLoading ? 'Analyse...' : 'Voir mes conseils'}
-            </button>
-          </div>
-
-          {/* Score ATS */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 bg-amber-50 rounded-lg">
-                <Target size={20} className="text-amber-600" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-slate-900 text-sm">Score ATS</h4>
-                <p className="text-xs text-slate-500">Optimisation CV</p>
-              </div>
-            </div>
-            <p className="text-xs text-slate-600 mb-3">
-              Vérifiez si votre CV passe les filtres.
-            </p>
-            <button
-              onClick={loadAtsScore}
-              disabled={atsLoading}
-              className="w-full py-2 bg-amber-600 text-white rounded-xl text-sm font-medium hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {atsLoading ? <Loader size={14} className="animate-spin" /> : <Target size={14} />}
-              {atsLoading ? 'Analyse...' : 'Vérifier mon CV'}
-            </button>
-          </div>
-
-          {/* Améliorer CV */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 bg-emerald-50 rounded-lg">
-                <Award size={20} className="text-emerald-600" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-slate-900 text-sm">Améliorer CV</h4>
-                <p className="text-xs text-slate-500">Conseils détaillés</p>
-              </div>
-            </div>
-            <p className="text-xs text-slate-600 mb-3">
-              Recommandations priorisées.
-            </p>
-            <button
-              onClick={loadCvImprovements}
-              className="w-full py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 flex items-center justify-center gap-2"
-            >
-              <Briefcase size={14} />
-              Voir les améliorations
-            </button>
-          </div>
-
-          {/* AI PANEL */}
-          {showAiPanel && aiTips && (
-            <div className="bg-white rounded-2xl border border-indigo-200 p-5 shadow-md max-h-96 overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold text-indigo-900 text-sm">✨ Vos Conseils</h4>
-                <button onClick={() => setShowAiPanel(false)} className="text-slate-400 hover:text-slate-600">
-                  <X size={16} />
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="text-center p-2 bg-indigo-50 rounded-lg">
-                  <p className="text-lg font-bold text-indigo-600">{aiTips.total_applications}</p>
-                  <p className="text-xs text-slate-500">Candidatures</p>
-                </div>
-                <div className="text-center p-2 bg-green-50 rounded-lg">
-                  <p className="text-lg font-bold text-green-600">{aiTips.stats.accepted}</p>
-                  <p className="text-xs text-slate-500">Acceptées</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {aiTips.tips.map((tip, idx) => (
-                  <div key={idx} className={`p-3 rounded-lg text-xs ${
-                    tip.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' :
-                    tip.type === 'warning' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
-                    tip.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
-                    'bg-blue-50 text-blue-700 border border-blue-200'
-                  }`}>
-                    <p className="font-medium">{tip.title}</p>
-                    <p className="mt-1">{tip.message}</p>
+        {/* RIGHT: CV ANALYSIS (6 cols) */}
+        <div className="lg:col-span-6">
+          
+          {/* ⭐ CV ANALYSIS PANEL */}
+          {showCvAnalysis && cvAnalysis && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Bot size={24} />
+                    <div>
+                      <h3 className="font-bold text-lg">Analyse IA de votre CV</h3>
+                      <p className="text-indigo-200 text-sm">{cvAnalysis.file_name}</p>
+                    </div>
                   </div>
-                ))}
+                  <button 
+                    onClick={() => setShowCvAnalysis(false)}
+                    className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 max-h-[800px] overflow-y-auto">
+                {/* ATS Score */}
+                {renderAtsScore(cvAnalysis.ats_score)}
+
+                {/* AI Analysis Sections */}
+                {parseAiAnalysis(cvAnalysis.ai_analysis).map((section, idx) => 
+                  renderAnalysisSection(section, idx)
+                )}
+
+                {/* Action Buttons */}
+                <div className="mt-6 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => rewriteSection('expérience')}
+                    className="px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-100 flex items-center gap-2 transition-all"
+                  >
+                    <Edit3 size={14} />
+                    Reformuler Expérience
+                  </button>
+                  <button
+                    onClick={() => rewriteSection('compétences')}
+                    className="px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-100 flex items-center gap-2 transition-all"
+                  >
+                    <Edit3 size={14} />
+                    Reformuler Compétences
+                  </button>
+                  <button
+                    onClick={() => rewriteSection('résumé')}
+                    className="px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-100 flex items-center gap-2 transition-all"
+                  >
+                    <Edit3 size={14} />
+                    Reformuler Résumé
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* ATS PANEL */}
-          {showAtsPanel && atsScore && (
-            <div className="bg-white rounded-2xl border border-amber-200 p-5 shadow-md max-h-96 overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold text-amber-900 text-sm">🎯 Score ATS</h4>
-                <button onClick={() => setShowAtsPanel(false)} className="text-slate-400 hover:text-slate-600">
-                  <X size={16} />
-                </button>
+          {/* ⭐ PLACEHOLDER */}
+          {!showCvAnalysis && (
+            <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl border border-slate-200 p-12 text-center">
+              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                <FileText size={32} className="text-slate-400" />
               </div>
-              <div className="text-center mb-4">
-                <div className={`w-20 h-20 mx-auto rounded-full border-4 flex items-center justify-center ${
-                  atsScore.score >= 85 ? 'border-green-500 bg-green-50' :
-                  atsScore.score >= 65 ? 'border-blue-500 bg-blue-50' :
-                  atsScore.score >= 45 ? 'border-orange-500 bg-orange-50' :
-                  'border-red-500 bg-red-50'
-                }`}>
-                  <div>
-                    <p className="text-2xl font-bold">{atsScore.score}</p>
-                    <p className="text-xs text-slate-500">/100</p>
-                  </div>
-                </div>
-                <p className={`mt-2 text-xs font-medium ${
-                  atsScore.score >= 85 ? 'text-green-600' :
-                  atsScore.score >= 65 ? 'text-blue-600' :
-                  atsScore.score >= 45 ? 'text-orange-600' :
-                  'text-red-600'
-                }`}>
-                  {atsScore.status_text}
-                </p>
-              </div>
-              <div className="space-y-2">
-                {atsScore.tips.slice(0, 4).map((tip, idx) => (
-                  <div key={idx} className="flex items-start gap-2 p-2 bg-slate-50 rounded-lg text-xs">
-                    <ChevronRight size={12} className="text-indigo-400 mt-0.5" />
-                    <span className="text-slate-600">{tip}</span>
-                  </div>
-                ))}
-              </div>
+              <h3 className="text-lg font-semibold text-slate-700 mb-2">
+                Analysez votre CV
+              </h3>
+              <p className="text-slate-500 text-sm max-w-sm mx-auto">
+                Uploadez votre CV pour recevoir une analyse détaillée avec conseils personnalisés de notre IA
+              </p>
             </div>
           )}
-
-          {/* CV IMPROVEMENTS PANEL */}
-          {showCvPanel && cvImprovements && (
-            <div className="bg-white rounded-2xl border border-emerald-200 p-5 shadow-md max-h-96 overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold text-emerald-900 text-sm">🏆 Améliorations</h4>
-                <button onClick={() => setShowCvPanel(false)} className="text-slate-400 hover:text-slate-600">
-                  <X size={16} />
-                </button>
-              </div>
-              <div className="space-y-2">
-                {cvImprovements.improvements.map((imp, idx) => (
-                  <div key={idx} className={`p-3 rounded-lg text-xs border ${
-                    imp.priority === 'critical' ? 'bg-red-50 border-red-200' :
-                    imp.priority === 'high' ? 'bg-orange-50 border-orange-200' :
-                    imp.priority === 'medium' ? 'bg-blue-50 border-blue-200' :
-                    'bg-slate-50 border-slate-200'
-                  }`}>
-                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold mb-1 ${
-                      imp.priority === 'critical' ? 'bg-red-200 text-red-700' :
-                      imp.priority === 'high' ? 'bg-orange-200 text-orange-700' :
-                      imp.priority === 'medium' ? 'bg-blue-200 text-blue-700' :
-                      'bg-slate-200 text-slate-700'
-                    }`}>
-                      {imp.priority.toUpperCase()}
-                    </span>
-                    <p className="font-medium text-slate-900">{imp.section}</p>
-                    <p className="text-slate-600 mt-1">{imp.tip}</p>
-                    <p className="text-indigo-600 mt-1 font-medium">💡 {imp.action}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
         </div>
       </div>
+
+      {/* ⭐ CHAT BUTTON */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <button
+          onClick={() => setShowChat(!showChat)}
+          className="w-14 h-14 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all hover:scale-110"
+          title="Discuter avec l'IA"
+        >
+          <MessageCircle size={24} />
+        </button>
+      </div>
+
+      {/* ⭐ CHAT PANEL */}
+      {showChat && (
+        <div className="fixed bottom-24 right-6 w-96 h-[500px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col z-50 overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bot size={20} />
+              <span className="font-semibold">Job Chat</span>
+            </div>
+            <button
+              onClick={() => setShowChat(false)}
+              className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {chatMessages.length === 0 && (
+              <div className="text-center text-slate-400 py-8">
+                <Bot size={40} className="mx-auto mb-3 opacity-50" />
+                <p className="text-sm">Commencez une conversation avec l'IA</p>
+              </div>
+            )}
+
+            {chatMessages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                {msg.role === 'assistant' && (
+                  <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Bot size={16} className="text-indigo-600" />
+                  </div>
+                )}
+
+                <div
+                  className={`max-w-[80%] p-3 rounded-xl text-sm ${
+                    msg.role === 'user'
+                      ? 'bg-indigo-600 text-white rounded-br-none'
+                      : msg.content === 'analysis'
+                        ? 'bg-slate-50 text-slate-700 rounded-bl-none w-full max-w-full'
+                        : 'bg-slate-100 text-slate-700 rounded-bl-none'
+                  }`}
+                >
+                  {/* ⭐ RENDER ANALYSIS DANS CHAT */}
+                  {msg.content === 'analysis' ? (
+                    <div>
+                      {msg.ats_score && renderAtsScore(msg.ats_score)}
+                      {msg.sections && msg.sections.map((section, i) => 
+                        renderAnalysisSection(section, i)
+                      )}
+                    </div>
+                  ) : (
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                  )}
+                </div>
+
+                {msg.role === 'user' && (
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <User size={16} className="text-blue-600" />
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {chatLoading && (
+              <div className="flex gap-2 justify-start">
+                <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                  <Bot size={16} className="text-indigo-600 animate-bounce" />
+                </div>
+                <div className="bg-slate-100 p-3 rounded-xl rounded-bl-none">
+                  <Loader size={16} className="animate-spin text-indigo-600" />
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="border-t border-slate-200 p-3">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
+                placeholder="Posez votre question..."
+                className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                disabled={chatLoading}
+              />
+              <button
+                onClick={sendChatMessage}
+                disabled={chatLoading || !chatInput.trim()}
+                className="px-3 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                <Send size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

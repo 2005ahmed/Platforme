@@ -56,7 +56,7 @@ export default function UploadAndAnalyzeCV() {
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-      <h2>📄 Upload et Analyse du CV</h2>
+      <h2>Analyse du CV</h2>
 
       <form onSubmit={handleSubmit} style={{ marginBottom: '20px' }}>
         <div style={{ marginBottom: '15px' }}>

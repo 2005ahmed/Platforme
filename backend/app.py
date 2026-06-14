@@ -1,13 +1,11 @@
 import os
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 from datetime import timedelta
 
-from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from extensions import db, jwt , mail
 from config import Config
-from services.ai_service import extract_text_from_file, analyze_cv_text
 
 from routes import (
     auth_bp, 
@@ -70,13 +68,6 @@ app.register_blueprint(settings_bp)
 with app.app_context():
     db.create_all()
 
-
-@app.route("/api/analyze-cv", methods=["POST"])
-def analyze_cv():
-    file = request.files["cv"]
-    text = extract_text_from_file(file)
-    result = analyze_cv_text(text)
-    return jsonify(result)
 
 
 @app.route("/uploads/<path:filename>", methods=["GET"])
