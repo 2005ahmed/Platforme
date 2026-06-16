@@ -20,7 +20,6 @@ class Resource(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 
     def to_dict(self):
-        """Simple — ma jiboch offer (bach ma ykoonch loop)"""
         return {
             "id": self.id,
             "title": self.title,
@@ -33,7 +32,6 @@ class Resource(db.Model):
         }
 
     def to_dict_with_offer(self):
-        """M3a offer info simple (ma jiboch resources dyal offer)"""
         return {
             "id": self.id,
             "title": self.title,
@@ -69,7 +67,6 @@ class JobOffer(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 
     def to_dict(self):
-        """Simple — ma jiboch resources (bach ma ykoonch loop)"""
         return {
             "id": self.id,
             "title": self.title,
@@ -85,7 +82,6 @@ class JobOffer(db.Model):
         }
 
     def to_dict_with_resources(self):
-        """M3a resources liées (use carefully — bach ma ykoonch loop)"""
         return {
             "id": self.id,
             "title": self.title,
@@ -98,7 +94,6 @@ class JobOffer(db.Model):
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
-            # ⭐ SE7I7: use r.to_dict() (simple, m3a offer_id seulement)
             "resources": [r.to_dict() for r in self.offer_resources] if hasattr(self, 'offer_resources') else []
         }
 
