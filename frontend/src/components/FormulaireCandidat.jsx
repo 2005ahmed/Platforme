@@ -428,7 +428,7 @@ function FormulaireCandidat() {
           <BarChart3 size={20} className={color} />
           <h4 className="font-semibold text-sm">Score ATS</h4>
         </div>
-        <span className={`text-2xl font-bold ${color}`}>{s}/100</span>
+        <span className={`text-2xl font-bold ${color}`}>{s}/10</span>
       </div>
       <div className="w-full bg-white rounded-full h-2">
         <div 
