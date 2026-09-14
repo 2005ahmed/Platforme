@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -11,24 +11,24 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
+  const redirectByRole = useCallback((userData) => {
+  if (userData.is_admin) {
+    nav("/admin");
+  } else if (userData.role === "recruiter") {
+    nav("/recruiter");
+  } else {
+    nav("/dashboard");
+  }
+}, [nav]);
 
   // ⭐ Ila deja logged in, redirect automatiquement
   useEffect(() => {
-    if (user) {
-      redirectByRole(user);
-    }
-  }, [user]);
+  if (user) {
+    redirectByRole(user);
+  }
+}, [user, redirectByRole]);
 
   // ⭐ Function dial redirect b7asab role
-  const redirectByRole = (userData) => {
-    if (userData.is_admin) {
-      nav("/admin");
-    } else if (userData.role === "recruiter") {
-      nav("/recruiter");
-    } else {
-      nav("/dashboard");
-    }
-  };
 
   const submit = async (e) => {
     e.preventDefault();

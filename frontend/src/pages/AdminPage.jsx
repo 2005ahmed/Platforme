@@ -8,9 +8,9 @@ import {
 import { Doughnut } from "react-chartjs-2";
 
 import {
-  Users, Briefcase, PieChart, Trash2, Shield, User,
-  Search, AlertTriangle, CheckCircle, XCircle, Loader2,
-  Star, FileText, Plus, ChevronDown, BookOpen, Lightbulb,
+  Users, Briefcase, PieChart, Trash2, Shield,
+  Search, CheckCircle, XCircle, Loader2,
+  Star, FileText, Plus, ChevronDown, BookOpen, 
   ExternalLink, Link as LinkIcon
 } from "lucide-react";
 
@@ -21,7 +21,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState([]);
   const [resources, setResources] = useState([]);
   const [offers, setOffers] = useState([]);
-  const [advice, setAdvice] = useState([]);
+  const [, setAdvice] = useState([]);
   
   const [activeTab, setActiveTab] = useState("users");
   const [search, setSearch] = useState("");

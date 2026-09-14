@@ -15,9 +15,6 @@ import {
   X,
   Inbox,
   History,
-  Settings,
-  Bell,
-  ChevronRight
 } from "lucide-react";
 
 export default function RecruiterPage() {

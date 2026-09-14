@@ -29,7 +29,6 @@ export default function DashboardPage() {
 
   const load = async () => {
     try {
-      const token = localStorage.getItem("token");
 
       // ⭐ ZID: Load ga3 f Promise.all
       const [appsRes, resourcesRes, offersRes, adviceRes] = await Promise.all([

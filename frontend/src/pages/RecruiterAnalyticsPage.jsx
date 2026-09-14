@@ -6,9 +6,8 @@ import api from "../services/api";
 
 // RecruiterAnalyticsPage.jsx
 import {
-  TrendingUp, TrendingDown,
   Users, FileText, CheckCircle, XCircle, Clock,
-  Mail, Eye, ArrowUpRight, ArrowDownRight,
+   Eye, ArrowUpRight, ArrowDownRight,
   RefreshCw, Calendar, Activity
 } from "lucide-react";
 
@@ -24,7 +23,7 @@ import {
   Legend,
   Filler,
 } from "chart.js";
-import { Bar, Doughnut, Line } from "react-chartjs-2";
+import { Doughnut, Line } from "react-chartjs-2";
 
 // ⭐ REGISTER KOLCHI!
 ChartJS.register(

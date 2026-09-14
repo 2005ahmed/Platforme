@@ -6,24 +6,15 @@ import {
   Document, Packer, Paragraph, TextRun
 } from "docx";
 import {
-  Sparkles, Target, Award, CheckCircle2, AlertCircle,
-  XCircle, ChevronRight, Upload, Download, TrendingUp,
+  Sparkles, Target, CheckCircle2, AlertCircle,
+  Upload, Download,
   Zap, FileText, Briefcase, Loader, X, MessageCircle,
-  Send, User, Bot, FileUp, Paperclip, Wand2, Star,
+  Send, User, Bot, FileUp, Wand2, Star,
   BarChart3, Lightbulb, Edit3, ArrowRight, BookOpen,
   Code, Globe
 } from "lucide-react";
 
 // ⭐ FONCTION BACH TSE7A7 L-TEXT (remove markdown)
-function formatAiText(text) {
-  if (!text) return "";
-  return text
-    .replace(/\n\n/g, '\n')
-    .replace(/\n/g, '\n')
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/\*(.*?)\*/g, '$1')
-    .trim();
-}
 
 // ⭐ FONCTION BACH TPARSE L-ANALYSE CV
   function parseAiAnalysis(data) {
@@ -157,7 +148,7 @@ function FormulaireCandidat() {
   const [showChat, setShowChat] = useState(false);
   const [chatSessionId, setChatSessionId] = useState(null);
   const chatEndRef = useRef(null);
-  const fileInputRef = useRef(null);
+
 
   // Auto-scroll chat
   useEffect(() => {

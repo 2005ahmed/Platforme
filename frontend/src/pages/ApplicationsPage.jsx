@@ -4,7 +4,7 @@ import TopLayout from "../components/TopLayout";
 import api from "../services/api";
 import { 
   Plus, Search, Briefcase, MapPin, Calendar, Mail, 
-  Building2, Clock, Bell, Loader2, Send, Eye , X, ChevronRight, BookOpen, ExternalLink , FileText, Video , Trash2
+  Building2, Bell, Loader2, Send, Eye , X, ChevronRight, BookOpen, ExternalLink , FileText, Video , Trash2
 } from "lucide-react";
 
 export default function ApplicationsPage() {
@@ -103,14 +103,7 @@ export default function ApplicationsPage() {
   };
 
   // ===== GENERATE LETTER =====
-  const generateLetter = (app) => {
-    navigate("/ai", { 
-      state: { 
-        company: app.company,
-        job_title: app.job_title 
-      } 
-    });
-  };
+ 
 
   const getStatusConfig = (status) => {
     switch (status) {

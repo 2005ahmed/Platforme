@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import TopLayout from "../components/TopLayout";
 import api from "../services/api";
 import { 
-  Bell, Mail, Clock, Check, Trash2, ChevronDown,
-  AlertCircle, Settings, ChevronRight, Save, X
+  Bell, Mail, Clock, Check, Trash2,
+  AlertCircle, Settings, Save,
 } from "lucide-react";
 
 export default function NotificationsPage() {
@@ -12,7 +12,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState({ notifs: false, settings: false });
   const [saved, setSaved] = useState(false);
   const [activeSection, setActiveSection] = useState("notifications"); // ⭐ "notifications" | "settings"
-  const [error, setError] = useState(null);
+  const [, setError] = useState(null);
 
   // ========== LOAD ==========
   const loadNotifications = async () => {
