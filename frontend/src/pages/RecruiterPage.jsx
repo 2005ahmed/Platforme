@@ -35,7 +35,7 @@ export default function RecruiterPage() {
   const [activeTab, setActiveTab] = useState("applications");
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const BACKEND_URL = "http://localhost:5000";
+  const BACKEND_URL = "https://jobtracker-backend.dockhosting.dev";
 
   // ========== LOAD FUNCTIONS ==========
   const load = async () => {

@@ -145,7 +145,7 @@ export default function ProfilePage() {
   if (!cvName) return;
   
   // Flask kayserve /uploads/... directement
-  const cvUrl = `http://127.0.0.1:5000/uploads/${cvName}`;
+  const cvUrl = `https://jobtracker-backend.dockhosting.dev/uploads/${cvName}`;
   
   window.open(cvUrl, "_blank");
 };
