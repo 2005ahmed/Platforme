@@ -46,7 +46,8 @@ CORS(
     resources={r"/api/*": {"origins": [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://platforme-zsjs.vercel.app"
+        "https://platforme-zsjs.vercel.app",
+        "https://localhost"
     ]}},
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
@@ -60,7 +61,8 @@ def add_cors_headers(response):
     allowed_origins = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://platforme-zsjs.vercel.app"
+        "https://platforme-zsjs.vercel.app",
+        "https://localhost"
     ]
 
     if origin in allowed_origins:
